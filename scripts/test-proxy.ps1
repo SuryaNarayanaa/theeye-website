@@ -1,5 +1,5 @@
-# Reverse Proxy Test Script for Windows (PowerShell)
-# Tests the CTF proxy setup in Docker using nginx
+# Test script for reverse proxy configuration (Windows)
+# This script tests the CTF proxy setup
 
 param(
     [switch]$SkipCleanup
@@ -7,44 +7,45 @@ param(
 
 Write-Host "🧪 Testing Reverse Proxy Configuration..." -ForegroundColor Green
 
-# Colored output helpers
+# Function to print colored output
 function Write-Status {
     param([string]$Message)
     Write-Host "✅ $Message" -ForegroundColor Green
 }
+
 function Write-Warning {
     param([string]$Message)
     Write-Host "⚠️  $Message" -ForegroundColor Yellow
 }
+
 function Write-Error {
     param([string]$Message)
     Write-Host "❌ $Message" -ForegroundColor Red
 }
+
 function Write-Info {
     param([string]$Message)
     Write-Host "ℹ️  $Message" -ForegroundColor Blue
 }
 
-# Ensure Docker is running
+# Check if Docker is running
 try {
     docker info | Out-Null
 } catch {
-    Write-Error "Docker is not running. Please start Docker Desktop and try again."
+    Write-Error "Docker is not running. Please start Docker and try again."
     exit 1
 }
 
-# Container name
+# Check if the container is running
 $CONTAINER_NAME = "eyewebsite-test"
-
-# Stop and remove any existing test container
-$existingContainer = docker ps -aq -f name=$CONTAINER_NAME 2>$null
+$existingContainer = docker ps -q -f name=$CONTAINER_NAME 2>$null
 if ($existingContainer) {
-    Write-Info "Stopping and removing existing container..."
+    Write-Info "Stopping existing container..."
     docker stop $CONTAINER_NAME 2>$null
     docker rm $CONTAINER_NAME 2>$null
 }
 
-# Build Docker image
+# Build the image
 Write-Info "Building Docker image..."
 try {
     docker build -t eyewebsite-test .
@@ -53,7 +54,7 @@ try {
     }
     Write-Status "Docker image built successfully!"
 } catch {
-    Write-Error ("Docker build failed: " + $_.Exception.Message)
+    Write-Error "Docker build failed: $($_.Exception.Message)"
     exit 1
 }
 
@@ -64,43 +65,42 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to start container"
     }
-    Write-Status "Container started successfully!"
 } catch {
-    Write-Error ("Failed to start container: " + $_.Exception.Message)
+    Write-Error "Failed to start container: $($_.Exception.Message)"
     exit 1
 }
 
-# Wait for nginx to start
+# Wait for container to start
 Start-Sleep -Seconds 5
 
-# Test main site
-Write-Info "Testing main site (http://localhost:8080/)..."
+# Test the main site
+Write-Info "Testing main site..."
 try {
     $mainResponse = Invoke-WebRequest -Uri "http://localhost:8080/" -UseBasicParsing -TimeoutSec 10
     if ($mainResponse.StatusCode -eq 200) {
-        Write-Status ("Main site is accessible (HTTP " + $mainResponse.StatusCode + ")")
+        Write-Status "Main site is accessible (HTTP $($mainResponse.StatusCode))"
     } else {
-        Write-Warning ("Main site returned HTTP " + $mainResponse.StatusCode)
+        Write-Warning "Main site returned HTTP $($mainResponse.StatusCode)"
     }
 } catch {
-    Write-Warning ("Main site test failed: " + $_.Exception.Message)
+    Write-Warning "Main site test failed: $($_.Exception.Message)"
 }
 
-# Test CTF proxy root
-Write-Info "Testing CTF proxy root (http://localhost:8080/ctf/)..."
+# Test the CTF proxy
+Write-Info "Testing CTF proxy..."
 try {
     $ctfResponse = Invoke-WebRequest -Uri "http://localhost:8080/ctf/" -UseBasicParsing -TimeoutSec 10
     if ($ctfResponse.StatusCode -in @(200, 301, 302)) {
-        Write-Status ("CTF proxy is accessible (HTTP " + $ctfResponse.StatusCode + ")")
+        Write-Status "CTF proxy is accessible (HTTP $($ctfResponse.StatusCode))"
     } else {
-        Write-Warning ("CTF proxy returned HTTP " + $ctfResponse.StatusCode)
+        Write-Warning "CTF proxy returned HTTP $($ctfResponse.StatusCode)"
     }
 } catch {
-    Write-Warning ("CTF proxy test failed: " + $_.Exception.Message)
+    Write-Warning "CTF proxy test failed: $($_.Exception.Message)"
 }
 
-# Test path rewriting in CTF proxy
-Write-Info "Testing path rewriting in CTF proxy..."
+# Test path rewriting
+Write-Info "Testing path rewriting..."
 try {
     $ctfContent = Invoke-WebRequest -Uri "http://localhost:8080/ctf/" -UseBasicParsing -TimeoutSec 10
     if ($ctfContent.Content -match "/ctf/") {
@@ -109,70 +109,71 @@ try {
         Write-Warning "Path rewriting may not be working (no /ctf/ found in response)"
     }
 } catch {
-    Write-Warning ("Path rewriting test failed: " + $_.Exception.Message)
+    Write-Warning "Path rewriting test failed: $($_.Exception.Message)"
 }
 
-# Test specific CTF paths
+# Test specific paths
 Write-Info "Testing specific CTF paths..."
 $paths = @("/ctf/", "/ctf/challenge", "/ctf/login", "/ctf/register")
+
 foreach ($path in $paths) {
     try {
-        $response = Invoke-WebRequest -Uri ("http://localhost:8080" + $path) -UseBasicParsing -TimeoutSec 10
+        $response = Invoke-WebRequest -Uri "http://localhost:8080$path" -UseBasicParsing -TimeoutSec 10
         if ($response.StatusCode -in @(200, 301, 302)) {
-            Write-Status ("Path " + $path + " is accessible (HTTP " + $response.StatusCode + ")")
+            Write-Status "Path $path is accessible (HTTP $($response.StatusCode))"
         } else {
-            Write-Warning ("Path " + $path + " returned HTTP " + $response.StatusCode)
+            Write-Warning "Path $path returned HTTP $($response.StatusCode)"
         }
     } catch {
-        Write-Warning ("Path " + $path + " test failed: " + $_.Exception.Message)
+        Write-Warning "Path $path test failed: $($_.Exception.Message)"
     }
 }
 
-# Test static assets (these may 404 if not present, that's OK)
-Write-Info "Testing static assets under /ctf/..."
+# Test static assets
+Write-Info "Testing static assets..."
 $assets = @("/ctf/main.js", "/ctf/style.css", "/ctf/favicon.ico")
+
 foreach ($asset in $assets) {
     try {
-        $response = Invoke-WebRequest -Uri ("http://localhost:8080" + $asset) -UseBasicParsing -TimeoutSec 10
+        $response = Invoke-WebRequest -Uri "http://localhost:8080$asset" -UseBasicParsing -TimeoutSec 10
         if ($response.StatusCode -eq 200) {
-            Write-Status ("Asset " + $asset + " is accessible (HTTP " + $response.StatusCode + ")")
+            Write-Status "Asset $asset is accessible (HTTP $($response.StatusCode))"
         } else {
-            Write-Warning ("Asset " + $asset + " returned HTTP " + $response.StatusCode)
+            Write-Warning "Asset $asset returned HTTP $($response.StatusCode)"
         }
     } catch {
-        if ($_.Exception.Response -and $_.Exception.Response.StatusCode -eq 404) {
-            Write-Warning ("Asset " + $asset + " not found (HTTP 404) - this may be normal")
+        if ($_.Exception.Response.StatusCode -eq 404) {
+            Write-Warning "Asset $asset not found (HTTP 404) - this might be normal"
         } else {
-            Write-Warning ("Asset " + $asset + " test failed: " + $_.Exception.Message)
+            Write-Warning "Asset $asset test failed: $($_.Exception.Message)"
         }
     }
 }
 
-# Test nginx configuration inside the container
-Write-Info "Testing nginx configuration inside the container..."
+# Test nginx configuration
+Write-Info "Testing nginx configuration..."
 try {
     $nginxTest = docker exec $CONTAINER_NAME nginx -t 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Status "Nginx configuration is valid"
     } else {
         Write-Error "Nginx configuration has errors"
-        Write-Host $nginxTest
     }
 } catch {
-    Write-Warning ("Nginx configuration test failed: " + $_.Exception.Message)
+    Write-Warning "Nginx configuration test failed: $($_.Exception.Message)"
 }
 
-# Show last 10 lines of container logs
+# Show container logs
 Write-Info "Container logs (last 10 lines):"
 try {
     docker logs --tail 10 $CONTAINER_NAME
 } catch {
-    Write-Warning ("Failed to get container logs: " + $_.Exception.Message)
+    Write-Warning "Failed to get container logs: $($_.Exception.Message)"
 }
 
 # Cleanup
 if (-not $SkipCleanup) {
-    Write-Info "Cleaning up test container and image..."
+    Write-Info "Cleaning up..."
     docker stop $CONTAINER_NAME 2>$null
     docker rm $CONTAINER_NAME 2>$null
     docker rmi eyewebsite-test 2>$null

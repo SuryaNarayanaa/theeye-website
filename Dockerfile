@@ -28,13 +28,13 @@ RUN mkdir -p /var/log/nginx && \
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom nginx configuration
+# Copy custom nginx configuration (make sure this is after the default config is in place)
 COPY nginx.conf /etc/nginx/nginx.conf
 
 # Expose port 80
 EXPOSE 80
 
-# Start nginx
+# Start nginx with the custom configuration
 CMD ["nginx", "-g", "daemon off;"]
 
 # Alternative: Use serve for development/testing
@@ -56,4 +56,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 
 # Start serve
-CMD ["serve", "-s", "dist", "-l", "3000"] 
+CMD ["serve", "-s", "dist", "-l", "3000"]

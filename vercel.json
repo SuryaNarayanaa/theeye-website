@@ -1,0 +1,9 @@
+{
+    "rewrites": [
+      {
+        "source": "/ctf/:path*",
+        "destination": "https://hidden-x.vercel.app/:path*"
+      }
+    ]
+  }
+  
