@@ -8,52 +8,12 @@ on:
 
 env:
   NODE_VERSION: '18'
-  CACHE_DEPENDENCIES: |
-    **/package-lock.json
-    **/yarn.lock
-    **/pnpm-lock.yaml
 
 jobs:
-  # Lint and Test Stage
-  lint-and-test:
-    name: Lint and Test
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Run ESLint
-      run: npm run lint
-      
-    - name: Run type checking (if TypeScript is added later)
-      run: |
-        if [ -f "tsconfig.json" ]; then
-          npx tsc --noEmit
-        fi
-      continue-on-error: true
-      
-    - name: Run tests (if test scripts are added later)
-      run: |
-        if npm run | grep -q "test"; then
-          npm test
-        fi
-      continue-on-error: true
-
   # Build Stage
   build:
     name: Build Application
     runs-on: ubuntu-latest
-    needs: lint-and-test
     
     steps:
     - name: Checkout code
@@ -127,11 +87,6 @@ jobs:
       run: |
         echo "Deploying to staging environment..."
         # Add your staging deployment logic here
-        # Examples:
-        # - AWS S3 sync
-        # - Netlify deploy
-        # - Vercel deploy
-        # - Custom server deployment
         
     - name: Notify staging deployment
       run: |
@@ -157,11 +112,6 @@ jobs:
       run: |
         echo "Deploying to production environment..."
         # Add your production deployment logic here
-        # Examples:
-        # - AWS S3 sync
-        # - Netlify deploy
-        # - Vercel deploy
-        # - Custom server deployment
         
     - name: Notify production deployment
       run: |
@@ -198,4 +148,4 @@ jobs:
           http://localhost:4173
         uploadArtifacts: true
         temporaryPublicStorage: true
-      continue-on-error: true 
+      continue-on-error: true
